@@ -78,62 +78,154 @@ for handler in logger.handlers:
 app = FastAPI()
 
 # Get API keys from environment
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-if not GEMINI_API_KEY:
-    logger.error("🔴 GEMINI_API_KEY not found in environment variables. Please set it.")
+if not OPENROUTER_API_KEY:
+    logger.error(" OPENROUTER_API_KEY not found in environment variables. Please set it.")
     # Potentially exit or raise a more severe error if running the server without it is not an option.
     # sys.exit(1)
 
+# Set OpenRouter API key for LiteLLM
+os.environ["OPENROUTER_API_KEY"] = OPENROUTER_API_KEY
 
-# Preferred provider is now always Google/Gemini
-PREFERRED_PROVIDER = "google"
+# Constants
+OPENROUTER_PREFIX = "openrouter/"
+ANTHROPIC_PREFIX = "anthropic/"
+OPENAI_PREFIX = "openai/"
+GOOGLE_PREFIX = "google/"
+META_LLAMA_PREFIX = "meta-llama/"
+MISTRALAI_PREFIX = "mistralai/"
+COHERE_PREFIX = "cohere/"
+
+# Preferred provider is now OpenRouter
+PREFERRED_PROVIDER = "openrouter"
 
 # Get model mapping configuration from environment
-# Default to latest Gemini models if not set
-DEFAULT_BIG_GEMINI_MODEL = "gemini-1.5-pro-latest"
-DEFAULT_SMALL_GEMINI_MODEL = "gemini-1.5-flash-latest"
-BIG_MODEL = os.environ.get("BIG_MODEL", DEFAULT_BIG_GEMINI_MODEL) # Updated default
-SMALL_MODEL = os.environ.get("SMALL_MODEL", DEFAULT_SMALL_GEMINI_MODEL) # Updated default
+# Default to popular OpenRouter models if not set
+DEFAULT_BIG_OPENROUTER_MODEL = "anthropic/claude-3.5-sonnet"
+DEFAULT_SMALL_OPENROUTER_MODEL = "anthropic/claude-3-haiku"
+BIG_MODEL = os.environ.get("BIG_MODEL", DEFAULT_BIG_OPENROUTER_MODEL)
+SMALL_MODEL = os.environ.get("SMALL_MODEL", DEFAULT_SMALL_OPENROUTER_MODEL)
 
-# List of Gemini models - ensure BIG_MODEL and SMALL_MODEL are in this list if not using aliases
-GEMINI_MODELS = [
-    "gemini-1.5-pro-latest",
-    "gemini-1.5-pro-preview-0514", # Example, keep this updated
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash-preview-0514", # Example
-    "gemini-pro", # Older model, still useful
-    "gemini-2.5-pro-preview-05-06", # From original code
-    "gemini-2.5-flash-preview-04-17" # From original code
+# List of OpenRouter models - fetched from OpenRouter API
+OPENROUTER_MODELS = [
+    # Latest Models (Jan 2025)
+    "thedrummer/valkyrie-49b-v1",                 # Creative writing model
+    "anthropic/claude-opus-4",                    # Latest Claude Opus 4
+    "anthropic/claude-sonnet-4",                  # Latest Claude Sonnet 4
+    "mistralai/devstral-small",                   # Mistral coding model
+    "mistralai/devstral-small:free",              # Free version
+    "google/gemma-3n-e4b-it:free",                # Google Gemma 3n free
+    "google/gemini-2.5-flash-preview-05-20",     # Latest Gemini 2.5 Flash
+    "google/gemini-2.5-flash-preview-05-20:thinking",  # With thinking mode
+    "google/gemini-2.5-pro-preview",             # Latest Gemini 2.5 Pro
+    "openai/codex-mini",                          # OpenAI Codex Mini
+    "meta-llama/llama-3.3-8b-instruct:free",     # Meta Llama 3.3 free
+    "nousresearch/deephermes-3-mistral-24b-preview:free",  # Nous Research free
+    "mistralai/mistral-medium-3",                 # Mistral Medium 3
+    "arcee-ai/caller-large",                      # Function calling specialist
+    "arcee-ai/spotlight",                         # Vision-language model
+    "arcee-ai/maestro-reasoning",                 # Reasoning model
+    "arcee-ai/virtuoso-large",                    # 72B general purpose
+    "arcee-ai/coder-large",                       # 32B coding model
+    "arcee-ai/virtuoso-medium-v2",                # 32B medium model
+    "arcee-ai/arcee-blitz",                       # 24B everyday chat
+    "microsoft/phi-4-reasoning-plus:free",        # Microsoft Phi-4 free
+    "microsoft/phi-4-reasoning-plus",             # Microsoft Phi-4 paid
+    "microsoft/phi-4-reasoning:free",             # Microsoft Phi-4 reasoning free
+    "inception/mercury-coder-small-beta",         # Fast coding model (dLLM)
+    "opengvlab/internvl3-14b:free",               # Vision model free
+    "opengvlab/internvl3-2b:free",                # Small vision model free
+    "deepseek/deepseek-prover-v2:free",           # DeepSeek Prover V2 free
+    "deepseek/deepseek-prover-v2",                # DeepSeek Prover V2 paid
+    "meta-llama/llama-guard-4-12b",               # Content safety model
+    "qwen/qwen3-30b-a3b:free",                    # Qwen3 30B free
+    "qwen/qwen3-30b-a3b",                         # Qwen3 30B paid
+    "qwen/qwen3-32b-preview",                     # Qwen3 32B preview
+    "qwen/qwen3-14b-instruct",                    # Qwen3 14B
+    "qwen/qwen3-7b-instruct",                     # Qwen3 7B
+    "qwen/qwen3-1.8b-instruct",                   # Qwen3 1.8B
+    "qwen/qwq-32b-preview",                       # QwQ reasoning model
+    "01-ai/yi-lightning",                         # Yi Lightning fast model
+    "01-ai/yi-large",                             # Yi Large model
+    "meta-llama/llama-4-scout-8b",                # Llama 4 Scout
+    "meta-llama/llama-4-scout-8b:free",           # Llama 4 Scout free
+    "meta-llama/llama-3.3-70b-instruct",         # Llama 3.3 70B
+    "meta-llama/llama-3.3-70b-instruct:free",    # Llama 3.3 70B free
+    "meta-llama/llama-3.2-3b-instruct:free",     # Llama 3.2 3B free
+    "meta-llama/llama-3.2-1b-instruct:free",     # Llama 3.2 1B free
+    "meta-llama/llama-3.1-405b-instruct",        # Llama 3.1 405B
+    "meta-llama/llama-3.1-70b-instruct",         # Llama 3.1 70B
+    "meta-llama/llama-3.1-8b-instruct",          # Llama 3.1 8B
+    "openai/o3-mini",                             # OpenAI o3-mini reasoning
+    "openai/o1",                                  # OpenAI o1
+    "openai/o1-mini",                             # OpenAI o1-mini
+    "openai/o1-preview",                          # OpenAI o1-preview
+    "openai/gpt-4o",                              # GPT-4o
+    "openai/gpt-4o-mini",                         # GPT-4o Mini
+    "openai/gpt-4-turbo",                         # GPT-4 Turbo
+    "openai/gpt-3.5-turbo",                       # GPT-3.5 Turbo
+    "openai/chatgpt-4o-latest",                   # Latest ChatGPT-4o
+    "anthropic/claude-3.5-sonnet",               # Claude 3.5 Sonnet
+    "anthropic/claude-3.5-haiku",                # Claude 3.5 Haiku
+    "anthropic/claude-3-opus",                    # Claude 3 Opus
+    "anthropic/claude-3-sonnet",                  # Claude 3 Sonnet
+    "anthropic/claude-3-haiku",                   # Claude 3 Haiku
+    "google/gemini-pro-1.5",                     # Gemini Pro 1.5
+    "google/gemini-flash-1.5",                   # Gemini Flash 1.5
+    "google/gemini-flash-1.5-8b",                # Gemini Flash 1.5 8B
+    "google/learnlm-1.5-pro-experimental",       # LearnLM experimental
+    "deepseek/deepseek-v3",                       # DeepSeek V3
+    "deepseek/deepseek-chat",                     # DeepSeek Chat
+    "deepseek/deepseek-coder",                    # DeepSeek Coder
+    "deepseek/deepseek-r1-lite-preview",          # DeepSeek R1 reasoning
+    "mistralai/mistral-large",                    # Mistral Large
+    "mistralai/mistral-small",                    # Mistral Small
+    "mistralai/codestral",                        # Mistral Codestral
+    "mistralai/pixtral-12b",                      # Mistral Pixtral vision
+    "mistralai/mixtral-8x7b-instruct",            # Mixtral 8x7B
+    "mistralai/mixtral-8x22b-instruct",           # Mixtral 8x22B
+    "cohere/command-r-plus",                      # Cohere Command R+
+    "cohere/command-r",                           # Cohere Command R
+    "x-ai/grok-2-vision-1212",                   # Grok 2 Vision
+    "x-ai/grok-2-1212",                          # Grok 2
+    "x-ai/grok-beta",                            # Grok Beta
+    "perplexity/llama-3.1-sonar-large-128k-online",  # Perplexity online
+    "perplexity/llama-3.1-sonar-small-128k-online",  # Perplexity small online
+    "databricks/dbrx-instruct",                   # Databricks DBRX
+    "nvidia/llama-3.1-nemotron-70b-instruct",    # NVIDIA Nemotron
+    "liquid/lfm-40b",                             # Liquid Foundation Model
+    "amazon/nova-pro-v1",                         # Amazon Nova Pro
+    "amazon/nova-lite-v1",                        # Amazon Nova Lite
+    "amazon/nova-micro-v1",                       # Amazon Nova Micro
 ]
-# Ensure BIG_MODEL and SMALL_MODEL from environment are added if they are full Gemini names
-if BIG_MODEL not in GEMINI_MODELS and BIG_MODEL.startswith("gemini"):
-    GEMINI_MODELS.append(BIG_MODEL)
-if SMALL_MODEL not in GEMINI_MODELS and SMALL_MODEL.startswith("gemini"):
-    GEMINI_MODELS.append(SMALL_MODEL)
+# Ensure BIG_MODEL and SMALL_MODEL from environment are added if they are full OpenRouter names
+if BIG_MODEL not in OPENROUTER_MODELS and BIG_MODEL.startswith("openrouter"):
+    OPENROUTER_MODELS.append(BIG_MODEL)
+if SMALL_MODEL not in OPENROUTER_MODELS and SMALL_MODEL.startswith("openrouter"):
+    OPENROUTER_MODELS.append(SMALL_MODEL)
 
-
-# Helper function to clean schema for Gemini
-def clean_gemini_schema(schema: Any) -> Any:
-    """Recursively removes unsupported fields from a JSON schema for Gemini."""
+# Helper function to clean schema for OpenRouter
+def clean_openrouter_schema(schema: Any) -> Any:
+    """Recursively removes unsupported fields from a JSON schema for OpenRouter."""
     if isinstance(schema, dict):
-        # Remove specific keys unsupported by Gemini tool parameters
+        # Remove specific keys unsupported by OpenRouter tool parameters
         schema.pop("additionalProperties", None)
         schema.pop("default", None)
 
         # Check for unsupported 'format' in string types
         if schema.get("type") == "string" and "format" in schema:
-            allowed_formats = {"enum", "date-time"} # Gemini might support more, this is a safe subset
+            allowed_formats = {"enum", "date-time"} # OpenRouter might support more, this is a safe subset
             if schema["format"] not in allowed_formats:
-                logger.debug(f"Removing unsupported format '{schema['format']}' for string type in Gemini schema.")
+                logger.debug(f"Removing unsupported format '{schema['format']}' for string type in OpenRouter schema.")
                 schema.pop("format")
 
         # Recursively clean nested schemas (properties, items, etc.)
         for key, value in list(schema.items()): # Use list() to allow modification during iteration
-            schema[key] = clean_gemini_schema(value)
+            schema[key] = clean_openrouter_schema(value)
     elif isinstance(schema, list):
         # Recursively clean items in a list
-        return [clean_gemini_schema(item) for item in schema]
+        return [clean_openrouter_schema(item) for item in schema]
     return schema
 
 # Models for Anthropic API requests (kept for API compatibility)
@@ -141,7 +233,7 @@ class ContentBlockText(BaseModel):
     type: Literal["text"]
     text: str
 
-class ContentBlockImage(BaseModel): # Kept for structure, though image handling with Gemini via LiteLLM needs testing
+class ContentBlockImage(BaseModel): # Kept for structure, though image handling with OpenRouter via LiteLLM needs testing
     type: Literal["image"]
     source: Dict[str, Any]
 
@@ -169,7 +261,7 @@ class Tool(BaseModel):
     description: Optional[str] = None
     input_schema: Dict[str, Any]
 
-class ThinkingConfig(BaseModel): # This will be ignored for Gemini
+class ThinkingConfig(BaseModel): # This will be ignored for OpenRouter
     enabled: bool = True
 
 class MessagesRequest(BaseModel):
@@ -179,77 +271,100 @@ class MessagesRequest(BaseModel):
     system: Optional[Union[str, List[SystemContent]]] = None
     stop_sequences: Optional[List[str]] = None
     stream: Optional[bool] = False
-    temperature: Optional[float] = 1.0
+    temperature: Optional[float] = None
     top_p: Optional[float] = None
     top_k: Optional[int] = None
     metadata: Optional[Dict[str, Any]] = None
     tools: Optional[List[Tool]] = None
     tool_choice: Optional[Dict[str, Any]] = None
-    thinking: Optional[ThinkingConfig] = None # Kept for API compatibility, ignored by Gemini
+    thinking: Optional[ThinkingConfig] = None # Kept for API compatibility, ignored by OpenRouter
     original_model: Optional[str] = None  # Will store the original model name
 
+    def _clean_model_name(self, model_name: str) -> str:
+        """Remove known prefixes from model name."""
+        clean_name = model_name
+        prefixes = [
+            (OPENROUTER_PREFIX, len(OPENROUTER_PREFIX)),
+            (ANTHROPIC_PREFIX, len(ANTHROPIC_PREFIX)),
+            (OPENAI_PREFIX, len(OPENAI_PREFIX)),
+            (GOOGLE_PREFIX, len(GOOGLE_PREFIX)),
+            (META_LLAMA_PREFIX, len(META_LLAMA_PREFIX)),
+            (MISTRALAI_PREFIX, len(MISTRALAI_PREFIX)),
+            (COHERE_PREFIX, len(COHERE_PREFIX))
+        ]
+        
+        for prefix, length in prefixes:
+            if clean_name.startswith(prefix):
+                clean_name = clean_name[length:]
+                break
+        
+        return clean_name
+
+    def _map_alias_to_model(self, clean_name: str, original_model: str) -> tuple[str, bool]:
+        """Map model aliases (haiku, sonnet) to actual models."""
+        # Map Haiku to SMALL_MODEL
+        if 'haiku' in clean_name.lower():
+            if SMALL_MODEL in OPENROUTER_MODELS:
+                return SMALL_MODEL, True
+            else:
+                logger.warning(f" SMALL_MODEL ('{SMALL_MODEL}') is not a recognized OpenRouter model. Using original: '{original_model}'")
+                return DEFAULT_SMALL_OPENROUTER_MODEL, True
+
+        # Map Sonnet to BIG_MODEL
+        elif 'sonnet' in clean_name.lower():
+            if BIG_MODEL in OPENROUTER_MODELS:
+                return BIG_MODEL, True
+            else:
+                logger.warning(f" BIG_MODEL ('{BIG_MODEL}') is not a recognized OpenRouter model. Using original: '{original_model}'")
+                return DEFAULT_BIG_OPENROUTER_MODEL, True
+
+        return "", False
+
+    def _add_openrouter_prefix(self, clean_name: str, original_model: str) -> tuple[str, bool]:
+        """Check if model is recognized in OpenRouter."""
+        if clean_name in OPENROUTER_MODELS:
+            return clean_name, True
+        return "", False
+
     @field_validator('model')
+    @classmethod
     def validate_model_field(cls, v, info):
         original_model = v
         new_model = v # Default to original value
 
-        logger.debug(f"📋 MODEL VALIDATION (GEMINI-ONLY): Original='{original_model}', BIG='{BIG_MODEL}', SMALL='{SMALL_MODEL}'")
+        logger.debug(f" MODEL VALIDATION (OPENROUTER-ONLY): Original='{original_model}', BIG='{BIG_MODEL}', SMALL='{SMALL_MODEL}'")
 
-        clean_v = v
-        if clean_v.startswith('gemini/'):
-            clean_v = clean_v[7:]
-        # Remove other prefixes if they somehow sneak in, though they shouldn't
-        elif clean_v.startswith('anthropic/'): clean_v = clean_v[10:]
-        elif clean_v.startswith('openai/'): clean_v = clean_v[7:]
+        # Create temporary instance for helper methods
+        temp_instance = cls.__new__(cls)
+        clean_v = temp_instance._clean_model_name(v)
 
-
-        mapped = False
-        # Map Haiku to SMALL_MODEL (must be a Gemini model)
-        if 'haiku' in clean_v.lower():
-            if SMALL_MODEL in GEMINI_MODELS:
-                new_model = f"gemini/{SMALL_MODEL}"
-                mapped = True
-            else:
-                logger.warning(f"⚠️ SMALL_MODEL ('{SMALL_MODEL}') is not a recognized Gemini model. Using original: '{original_model}'")
-                # Fallback to a default known small Gemini or error
-                new_model = f"gemini/{DEFAULT_SMALL_GEMINI_MODEL}" # Fallback
-                mapped = True
-
-
-        # Map Sonnet to BIG_MODEL (must be a Gemini model)
-        elif 'sonnet' in clean_v.lower():
-            if BIG_MODEL in GEMINI_MODELS:
-                new_model = f"gemini/{BIG_MODEL}"
-                mapped = True
-            else:
-                logger.warning(f"⚠️ BIG_MODEL ('{BIG_MODEL}') is not a recognized Gemini model. Using original: '{original_model}'")
-                # Fallback to a default known big Gemini or error
-                new_model = f"gemini/{DEFAULT_BIG_GEMINI_MODEL}" # Fallback
-                mapped = True
-
-        # Add 'gemini/' prefix if a known Gemini model is provided without it
-        elif not mapped and clean_v in GEMINI_MODELS and not v.startswith('gemini/'):
-            new_model = f"gemini/{clean_v}"
-            mapped = True
-
+        # Try mapping aliases first
+        mapped_model, mapped = temp_instance._map_alias_to_model(clean_v, original_model)
         if mapped:
-            logger.debug(f"📌 MODEL MAPPING: '{original_model}' ➡️ '{new_model}'")
-        elif not v.startswith('gemini/'):
-            logger.warning(f"⚠️ Model '{original_model}' is not a recognized Gemini model or alias, and does not start with 'gemini/'. Attempting to use as 'gemini/{v}'.")
-            new_model = f"gemini/{v}" # Attempt to prefix
-        else: # Already has gemini/ prefix, or wasn't mapped and we use as is
-            new_model = v
+            new_model = mapped_model
+        else:
+            # Try adding OpenRouter prefix if recognized model
+            prefixed_model, prefixed = temp_instance._add_openrouter_prefix(clean_v, v)
+            if prefixed:
+                new_model = prefixed_model
+                mapped = True
 
+        # Handle unmapped models
+        if not mapped:
+            if not v.startswith(OPENROUTER_PREFIX):
+                logger.warning(f" Model '{original_model}' is not a recognized OpenRouter model or alias, and does not start with 'openrouter/'. Attempting to use as 'openrouter/{v}'.")
+                new_model = v
+            else:
+                new_model = v
 
-        values = info.data
-        if isinstance(values, dict):
-            values['original_model'] = original_model
+        # Store original model name
+        if isinstance(info.context, dict):
+            info.context['original_model'] = original_model
 
-        # Final check if new_model is actually a gemini model
-        if not new_model.startswith("gemini/"):
-             logger.error(f"🚨 CRITICAL: Model '{new_model}' after validation is not a Gemini model. Defaulting to {DEFAULT_SMALL_GEMINI_MODEL}.")
-             new_model = f"gemini/{DEFAULT_SMALL_GEMINI_MODEL}"
-
+        # Final validation
+        if new_model not in OPENROUTER_MODELS:
+             logger.error(f" CRITICAL: Model '{new_model}' after validation is not a OpenRouter model. Defaulting to {DEFAULT_SMALL_OPENROUTER_MODEL}.")
+             new_model = DEFAULT_SMALL_OPENROUTER_MODEL
 
         return new_model
 
@@ -500,12 +615,12 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
         litellm_request_dict["top_k"] = anthropic_request.top_k
 
     if anthropic_request.tools:
-        gemini_tools = []
+        openrouter_tools = []
         for tool_obj in anthropic_request.tools:
             tool_dict = tool_obj.dict() # Use .model_dump() if Pydantic v2
             input_schema = tool_dict.get("input_schema", {})
-            cleaned_schema = clean_gemini_schema(input_schema) # Your existing schema cleaner
-            gemini_tools.append({
+            cleaned_schema = clean_openrouter_schema(input_schema) # Your existing schema cleaner
+            openrouter_tools.append({
                 "type": "function",
                 "function": {
                     "name": tool_dict["name"],
@@ -513,14 +628,14 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
                     "parameters": cleaned_schema
                 }
             })
-        litellm_request_dict["tools"] = gemini_tools
+        litellm_request_dict["tools"] = openrouter_tools
 
     if anthropic_request.tool_choice:
         # Your existing tool_choice conversion logic
         tool_choice_dict = anthropic_request.tool_choice
         choice_type = tool_choice_dict.get("type")
         if choice_type == "auto": litellm_request_dict["tool_choice"] = "auto"
-        elif choice_type == "any": litellm_request_dict["tool_choice"] = "auto" # Or "required", Gemini "ANY"
+        elif choice_type == "any": litellm_request_dict["tool_choice"] = "auto" # Or "required", OpenRouter "ANY"
         elif choice_type == "tool" and "name" in tool_choice_dict:
             litellm_request_dict["tool_choice"] = {"type": "function", "function": {"name": tool_choice_dict["name"]}}
         else: litellm_request_dict["tool_choice"] = "auto"
@@ -530,7 +645,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
 
 def convert_litellm_to_anthropic(litellm_response: Union[Dict[str, Any], Any],
                                  original_request: MessagesRequest) -> MessagesResponse:
-    """Convert LiteLLM (Gemini via OpenAI format) response to Anthropic API response format."""
+    """Convert LiteLLM (OpenRouter via OpenAI format) response to Anthropic API response format."""
     try:
         response_id = f"msg_{uuid.uuid4()}" # Default id
         content_text = ""
@@ -578,7 +693,7 @@ def convert_litellm_to_anthropic(litellm_response: Union[Dict[str, Any], Any],
             content_blocks.append(ContentBlockText(type="text", text=content_text))
 
         if tool_calls:
-            logger.debug(f"Processing tool calls from LiteLLM (Gemini): {tool_calls}")
+            logger.debug(f"Processing tool calls from LiteLLM (OpenRouter): {tool_calls}")
             if not isinstance(tool_calls, list): # Ensure it's a list
                 tool_calls = [tool_calls]
 
@@ -625,7 +740,7 @@ def convert_litellm_to_anthropic(litellm_response: Union[Dict[str, Any], Any],
             anthropic_stop_reason = "tool_use"
         elif finish_reason is None and tool_calls: # Implicit tool_use if no other reason but tools are present
              anthropic_stop_reason = "tool_use"
-        elif finish_reason: # other reasons like "content_filter" for Gemini
+        elif finish_reason: # other reasons like "content_filter" for OpenRouter
              anthropic_stop_reason = finish_reason # Pass it through if it's different
 
         if not content_blocks: # Must have at least one content block
@@ -649,7 +764,7 @@ def convert_litellm_to_anthropic(litellm_response: Union[Dict[str, Any], Any],
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
-        error_message = f"Error converting LiteLLM (Gemini) response to Anthropic: {str(e)}\n\nFull traceback:\n{error_traceback}"
+        error_message = f"Error converting LiteLLM (OpenRouter) response to Anthropic: {str(e)}\n\nFull traceback:\n{error_traceback}"
         logger.error(error_message)
         return MessagesResponse(
             id=f"msg_error_{uuid.uuid4()}",
@@ -667,7 +782,7 @@ def is_valid_json(json_str):
     except json.JSONDecodeError: return False
 
 async def handle_streaming(response_generator, original_request: MessagesRequest):
-    """Handle streaming responses from LiteLLM (Gemini) and convert to Anthropic SSE format."""
+    """Handle streaming responses from LiteLLM (OpenRouter) and convert to Anthropic SSE format."""
     message_id = f"msg_{uuid.uuid4().hex[:24]}"
     # Send message_start
     yield f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': {'id': message_id, 'type': 'message', 'role': 'assistant', 'model': original_request.original_model or original_request.model, 'content': [], 'stop_reason': None, 'stop_sequence': None, 'usage': {'input_tokens': 0, 'output_tokens': 0}}})}\n\n"
@@ -827,11 +942,16 @@ async def create_message(
         # The request.model is already validated and prefixed by Pydantic
         # request.original_model stores the model name from the incoming request body
 
-        logger.debug(f"📊 PROCESSING REQUEST: Original Model='{request.original_model}', Effective Model='{request.model}', Stream={request.stream}")
+        logger.debug(f" PROCESSING REQUEST: Original Model='{request.original_model}', Effective Model='{request.model}', Stream={request.stream}")
 
         litellm_request = convert_anthropic_to_litellm(request)
-        litellm_request["api_key"] = GEMINI_API_KEY
-        logger.debug(f"Using Gemini API key for model: {request.model}")
+        litellm_request["api_key"] = OPENROUTER_API_KEY
+        
+        # Configure OpenRouter routing for LiteLLM
+        litellm_request["custom_llm_provider"] = "openrouter"
+        litellm_request["api_base"] = "https://openrouter.ai/api/v1"
+        
+        logger.debug(f"Using OpenRouter API key for model: {request.model}")
 
 
         # Log the LiteLLM request (be careful with sensitive data in production)
@@ -861,7 +981,7 @@ async def create_message(
             start_time = time.time()
             litellm_response_obj = await litellm.acompletion(**litellm_request) # Use async for consistency
             # litellm_response_obj = litellm.completion(**litellm_request) # Sync version
-            logger.debug(f"✅ RESPONSE RECEIVED: Model={litellm_request.get('model')}, Time={time.time() - start_time:.2f}s")
+            logger.debug(f" RESPONSE RECEIVED: Model={litellm_request.get('model')}, Time={time.time() - start_time:.2f}s")
             # logger.debug(f"LiteLLM Full Response Object: {litellm_response_obj}")
 
             anthropic_response = convert_litellm_to_anthropic(litellm_response_obj, request)
@@ -946,17 +1066,17 @@ async def count_tokens(
 
 @app.get("/")
 async def root():
-    return {"message": "Anthropic-Compatible Proxy for Google Gemini (via LiteLLM)"}
+    return {"message": "Anthropic-Compatible Proxy for OpenRouter (via LiteLLM)"}
 
 class Colors:
     CYAN = "\033[96m"; BLUE = "\033[94m"; GREEN = "\033[92m"; YELLOW = "\033[93m"
     RED = "\033[91m"; MAGENTA = "\033[95m"; RESET = "\033[0m"; BOLD = "\033[1m"
     UNDERLINE = "\033[4m"; DIM = "\033[2m"
 
-def log_request_beautifully(method, path, requested_model, gemini_model_used, num_messages, num_tools, status_code):
-    """Log requests, showing mapping from requested model to the actual Gemini model used."""
+def log_request_beautifully(method, path, requested_model, openrouter_model_used, num_messages, num_tools, status_code):
+    """Log requests, showing mapping from requested model to the actual OpenRouter model used."""
     req_display = f"{Colors.CYAN}{requested_model}{Colors.RESET}"
-    gemini_display = f"{Colors.GREEN}{gemini_model_used.replace('gemini/', '')}{Colors.RESET}" # Show clean name
+    openrouter_display = f"{Colors.GREEN}{openrouter_model_used.replace(OPENROUTER_PREFIX, '')}{Colors.RESET}" # Show clean name
 
     endpoint = path.split("?")[0] if "?" in path else path
     tools_str = f"{Colors.MAGENTA}{num_tools} tools{Colors.RESET}"
@@ -964,7 +1084,7 @@ def log_request_beautifully(method, path, requested_model, gemini_model_used, nu
     status_str = f"{Colors.GREEN}✓ {status_code} OK{Colors.RESET}" if status_code == 200 else f"{Colors.RED}✗ {status_code}{Colors.RESET}"
 
     log_line = f"{Colors.BOLD}{method} {endpoint}{Colors.RESET} {status_str}"
-    model_line = f"Request: {req_display} → Gemini: {gemini_display} ({tools_str}, {messages_str})"
+    model_line = f"Request: {req_display} → OpenRouter: {openrouter_display} ({tools_str}, {messages_str})"
 
     print(log_line); print(model_line); sys.stdout.flush()
 
@@ -972,16 +1092,16 @@ def log_request_beautifully(method, path, requested_model, gemini_model_used, nu
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--help":
         print("Run with: uvicorn your_module_name:app --reload --host 0.0.0.0 --port 8082")
-        print("Ensure GEMINI_API_KEY is set in your environment or .env file.")
-        print("Optional .env vars: BIG_MODEL (default gemini-1.5-pro-latest), SMALL_MODEL (default gemini-1.5-flash-latest)")
+        print("Ensure OPENROUTER_API_KEY is set in your environment or .env file.")
+        print("Optional .env vars: BIG_MODEL (default openrouter/anthropic/claude-3.5-sonnet), SMALL_MODEL (default openrouter/anthropic/claude-3-haiku)")
         sys.exit(0)
 
-    if not GEMINI_API_KEY:
-        print("🔴 FATAL: GEMINI_API_KEY is not set. Please set it in your environment or .env file.")
+    if not OPENROUTER_API_KEY:
+        print(" FATAL: OPENROUTER_API_KEY is not set. Please set it in your environment or .env file.")
         print("If you have a .env file, ensure it's in the same directory or loaded correctly.")
         sys.exit(1)
     else:
-        print(f"✅ GEMINI_API_KEY loaded. BIG_MODEL='{BIG_MODEL}', SMALL_MODEL='{SMALL_MODEL}'")
+        print(f" OPENROUTER_API_KEY loaded. BIG_MODEL='{BIG_MODEL}', SMALL_MODEL='{SMALL_MODEL}'")
 
 
     uvicorn.run(app, host="0.0.0.0", port=8082, log_level="warning") # uvicorn log_level
