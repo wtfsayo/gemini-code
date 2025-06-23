@@ -55,24 +55,39 @@ This server acts as a bridge, allowing you to use Anthropic-compatible clients (
 
 5.  **Run the server**:
 
-    To run with auto-reload for development (restarts on code changes):
-    ```bash
-    uvicorn server:app --host 0.0.0.0 --port 8083 --reload
-    ```
-
-    To run normally:
+    To run with default settings (host: 0.0.0.0, port: 8084):
     ```bash
     python server.py
     ```
-    (The `server.py` file has a `__main__` block that runs `uvicorn` for you.)
+
+    To run with a custom port:
+    ```bash
+    python server.py -p 3000
+    ```
+
+    To run with custom host and port:
+    ```bash
+    python server.py --host 127.0.0.1 -p 8080
+    ```
+
+    To see all available options:
+    ```bash
+    python server.py --help
+    ```
+
+    Alternatively, for development with auto-reload (restarts on code changes):
+    ```bash
+    uvicorn server:app --host 0.0.0.0 --port 8084 --reload
+    ```
 
 ## Usage with Claude Code Client
 
 1.  Ensure Claude Code CLI is installed (`npm install -g @anthropic-ai/claude-code`).
 2.  Point the Claude Code client to your running proxy server:
     ```bash
-    ANTHROPIC_BASE_URL=http://localhost:8083 claude
+    ANTHROPIC_BASE_URL=http://localhost:8084 claude
     ```
+    (Replace `8084` with your custom port if you used the `-p` flag)
 3.  For optimal performance, disable conversation history compacting after starting Claude Code:
     ```
     /config

@@ -12,6 +12,7 @@ import time
 from dotenv import load_dotenv
 from datetime import datetime
 import sys
+import argparse
 
 litellm.set_verbose = False
 # litellm.telemetry = False # Optional: If you want to disable telemetry
@@ -1090,11 +1091,13 @@ def log_request_beautifully(method, path, requested_model, openrouter_model_used
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "--help":
-        print("Run with: uvicorn your_module_name:app --reload --host 0.0.0.0 --port 8082")
-        print("Ensure OPENROUTER_API_KEY is set in your environment or .env file.")
-        print("Optional .env vars: BIG_MODEL (default openrouter/anthropic/claude-3.5-sonnet), SMALL_MODEL (default openrouter/anthropic/claude-3-haiku)")
-        sys.exit(0)
+    parser = argparse.ArgumentParser(description="Anthropic-Compatible Proxy for OpenRouter")
+    parser.add_argument("-p", "--port", type=int, default=8084, 
+                       help="Port to run the server on (default: 8084)")
+    parser.add_argument("--host", type=str, default="0.0.0.0",
+                       help="Host to bind the server to (default: 0.0.0.0)")
+    
+    args = parser.parse_args()
 
     if not OPENROUTER_API_KEY:
         print(" FATAL: OPENROUTER_API_KEY is not set. Please set it in your environment or .env file.")
@@ -1102,9 +1105,9 @@ def main():
         sys.exit(1)
     else:
         print(f" OPENROUTER_API_KEY loaded. BIG_MODEL='{BIG_MODEL}', SMALL_MODEL='{SMALL_MODEL}'")
+        print(f" Starting server on {args.host}:{args.port}")
 
-
-    uvicorn.run(app, host="0.0.0.0", port=8082, log_level="warning") # uvicorn log_level
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning") # uvicorn log_level
 
 
 if __name__ == "__main__":
