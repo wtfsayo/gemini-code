@@ -41,11 +41,14 @@ This server acts as a bridge, allowing you to use Anthropic-compatible clients (
 4.  **Configure Environment Variables**:
     Copy the example environment file:
     ```bash
-    cp .env.example .env
+    cp env.example .env
     ```
     Edit `.env` and add your OpenRouter API key:
     ```dotenv
     OPENROUTER_API_KEY="your-openrouter-api-key" # Required
+
+    # Optional: Customize the API endpoint (defaults to https://openrouter.ai/api/v1)
+    # OPENROUTER_API_BASE="https://custom-proxy.example.com/api/v1"
 
     # Optional: Customize which OpenRouter models are used for Anthropic aliases
     # BIG_MODEL="anthropic/claude-3.5-sonnet"    # For 'sonnet' requests

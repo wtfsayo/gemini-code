@@ -80,6 +80,7 @@ app = FastAPI()
 
 # Get API keys from environment
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+OPENROUTER_API_BASE = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
 
 if not OPENROUTER_API_KEY:
     logger.error(" OPENROUTER_API_KEY not found in environment variables. Please set it.")
@@ -110,6 +111,7 @@ SMALL_MODEL = os.environ.get("SMALL_MODEL", DEFAULT_SMALL_OPENROUTER_MODEL)
 
 # List of OpenRouter models - fetched from OpenRouter API
 OPENROUTER_MODELS = [
+    "moonshotai/kimi-k2-instruct",
     # Latest Models (Jan 2025)
     "thedrummer/valkyrie-49b-v1",                 # Creative writing model
     "anthropic/claude-opus-4",                    # Latest Claude Opus 4
@@ -293,12 +295,12 @@ class MessagesRequest(BaseModel):
             (MISTRALAI_PREFIX, len(MISTRALAI_PREFIX)),
             (COHERE_PREFIX, len(COHERE_PREFIX))
         ]
-        
+
         for prefix, length in prefixes:
             if clean_name.startswith(prefix):
                 clean_name = clean_name[length:]
                 break
-        
+
         return clean_name
 
     def _map_alias_to_model(self, clean_name: str, original_model: str) -> tuple[str, bool]:
@@ -494,7 +496,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
         current_msg_text_parts = []
         current_msg_image_parts = [] # Assuming you might handle these
         current_msg_assistant_tool_calls = []
-        
+
         # For a 'user' message in Anthropic that contains 'tool_result' blocks
         # LiteLLM expects these as separate 'tool' role messages.
         # Any text in that 'user' message preceding the tool_result should be a separate 'user' message.
@@ -528,7 +530,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
                     })
                 else: # Should not happen based on Anthropic spec
                     logger.error(f"CRITICAL: tool_use block found in non-assistant message: {anthropic_msg.role}")
-            
+
             elif block.type == "tool_result": # User provides tool output
                 if anthropic_msg.role == "user":
                     # If there's accumulated text for the current user message, create a user message for it first
@@ -537,10 +539,10 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
                         if current_msg_text_parts:
                             user_content_for_litellm.append({"type": "text", "text": "".join(current_msg_text_parts).strip()})
                         user_content_for_litellm.extend(current_msg_image_parts)
-                        
+
                         if user_content_for_litellm: # Only add if there's actual content
                            litellm_messages.append({
-                               "role": "user", 
+                               "role": "user",
                                "content": user_content_for_litellm[0]["text"] if len(user_content_for_litellm) == 1 and user_content_for_litellm[0]["type"] == "text" else user_content_for_litellm
                            })
                         current_msg_text_parts = [] # Reset for next potential text block in same user message
@@ -579,7 +581,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
 
         elif anthropic_msg.role == "assistant":
             assistant_litellm_msg = {"role": "assistant"}
-            
+
             # Content (text/image) for assistant
             assistant_content_actual = []
             if final_text_str:
@@ -594,11 +596,11 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
             # Tool calls for assistant
             if current_msg_assistant_tool_calls:
                 assistant_litellm_msg["tool_calls"] = current_msg_assistant_tool_calls
-            
+
             # Only add the assistant message if it has text, images, or tool_calls
             if assistant_litellm_msg.get("content") or assistant_litellm_msg.get("tool_calls"):
                 litellm_messages.append(assistant_litellm_msg)
-    
+
     # --- Construct the final request dictionary for LiteLLM ---
     litellm_request_dict = {
         "model": anthropic_request.model, # Already validated model name
@@ -640,7 +642,7 @@ def convert_anthropic_to_litellm(anthropic_request: MessagesRequest) -> Dict[str
         elif choice_type == "tool" and "name" in tool_choice_dict:
             litellm_request_dict["tool_choice"] = {"type": "function", "function": {"name": tool_choice_dict["name"]}}
         else: litellm_request_dict["tool_choice"] = "auto"
-        
+
     return litellm_request_dict
 
 
@@ -947,11 +949,11 @@ async def create_message(
 
         litellm_request = convert_anthropic_to_litellm(request)
         litellm_request["api_key"] = OPENROUTER_API_KEY
-        
+
         # Configure OpenRouter routing for LiteLLM
         litellm_request["custom_llm_provider"] = "openrouter"
-        litellm_request["api_base"] = "https://openrouter.ai/api/v1"
-        
+        litellm_request["api_base"] = OPENROUTER_API_BASE
+
         logger.debug(f"Using OpenRouter API key for model: {request.model}")
 
 
@@ -1092,11 +1094,11 @@ def log_request_beautifully(method, path, requested_model, openrouter_model_used
 
 def main():
     parser = argparse.ArgumentParser(description="Anthropic-Compatible Proxy for OpenRouter")
-    parser.add_argument("-p", "--port", type=int, default=8084, 
+    parser.add_argument("-p", "--port", type=int, default=8084,
                        help="Port to run the server on (default: 8084)")
     parser.add_argument("--host", type=str, default="0.0.0.0",
                        help="Host to bind the server to (default: 0.0.0.0)")
-    
+
     args = parser.parse_args()
 
     if not OPENROUTER_API_KEY:
@@ -1105,6 +1107,7 @@ def main():
         sys.exit(1)
     else:
         print(f" OPENROUTER_API_KEY loaded. BIG_MODEL='{BIG_MODEL}', SMALL_MODEL='{SMALL_MODEL}'")
+        print(f" OPENROUTER_API_BASE: {OPENROUTER_API_BASE}")
         print(f" Starting server on {args.host}:{args.port}")
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning") # uvicorn log_level
